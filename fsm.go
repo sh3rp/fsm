@@ -16,7 +16,9 @@ type stateWrapper struct {
 }
 
 type FSM interface {
-	RegisterState(State, func(State, map[string]string), func(State, map[string]string))
+	RegisterState(State)
+	Enter(State, func(State, map[string]string))
+	Leave(State, func(State, map[string]string))
 	RegisterTransition(State, State)
 	Current() State
 	Initialize(State) error
@@ -24,18 +26,18 @@ type FSM interface {
 }
 
 type fsm struct {
-	validStates      map[State]stateWrapper
+	validStates      map[State]*stateWrapper
 	validTransitions map[State][]Transition
 	transitions      []Transition
 	currentState     State
 }
 
 func NewFSM() FSM {
-	return &fsm{validStates: make(map[State]stateWrapper), validTransitions: make(map[State][]Transition), transitions: []Transition{}, currentState: State(0)}
+	return &fsm{validStates: make(map[State]*stateWrapper), validTransitions: make(map[State][]Transition), transitions: []Transition{}, currentState: State(0)}
 }
 
-func (fsm *fsm) RegisterState(state State, enterFunc func(State, map[string]string), exitFunc func(State, map[string]string)) {
-	fsm.validStates[state] = stateWrapper{state, enterFunc, exitFunc}
+func (fsm *fsm) RegisterState(state State) {
+	fsm.validStates[state] = &stateWrapper{state: state}
 }
 
 func (fsm *fsm) RegisterTransition(from State, to State) {
@@ -43,6 +45,18 @@ func (fsm *fsm) RegisterTransition(from State, to State) {
 		fsm.validTransitions[from] = []Transition{}
 	}
 	fsm.validTransitions[from] = append(fsm.validTransitions[from], Transition{from, to})
+}
+
+func (fsm *fsm) Enter(state State, f func(State, map[string]string)) {
+	if _, hasState := fsm.validStates[state]; hasState {
+		fsm.validStates[state].enter = f
+	}
+}
+
+func (fsm *fsm) Leave(state State, f func(State, map[string]string)) {
+	if _, hasState := fsm.validStates[state]; hasState {
+		fsm.validStates[state].leave = f
+	}
 }
 
 func (fsm *fsm) Current() State {

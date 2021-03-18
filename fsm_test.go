@@ -13,9 +13,9 @@ func TestThreeStates(t *testing.T) {
 
 	fsm := NewFSM()
 
-	fsm.RegisterState(s1, nil, nil)
-	fsm.RegisterState(s2, nil, nil)
-	fsm.RegisterState(s3, nil, nil)
+	fsm.RegisterState(s1)
+	fsm.RegisterState(s2)
+	fsm.RegisterState(s3)
 
 	fsm.RegisterTransition(s1, s2)
 	fsm.RegisterTransition(s2, s3)
@@ -42,14 +42,16 @@ func TestStatesWithTransitionFuncs(t *testing.T) {
 	s1Left := false
 	s2Entered := false
 
-	fsm.RegisterState(s1, nil, func(s State, m map[string]string) {
+	fsm.RegisterState(s1)
+	fsm.Leave(s1, func(s State, m map[string]string) {
 		s1Left = true
 		s1Metadata = m
 	})
-	fsm.RegisterState(s2, func(s State, m map[string]string) {
+	fsm.RegisterState(s2)
+	fsm.Enter(s2, func(s State, m map[string]string) {
 		s2Entered = true
 		s2Metadata = m
-	}, nil)
+	})
 	fsm.RegisterTransition(s1, s2)
 
 	fsm.Initialize(s1)
@@ -59,4 +61,47 @@ func TestStatesWithTransitionFuncs(t *testing.T) {
 	assert.True(t, s2Entered)
 	assert.Equal(t, s1Metadata["key1"], "value1")
 	assert.Equal(t, s2Metadata["key1"], "value1")
+}
+
+func TestThreeStatesBroken(t *testing.T) {
+	s1 := State(1)
+	s2 := State(2)
+	s3 := State(3)
+	s4 := State(4)
+
+	fsm := NewFSM()
+
+	fsm.RegisterState(s1)
+	fsm.RegisterState(s2)
+	fsm.RegisterState(s3)
+
+	fsm.RegisterTransition(s1, s2)
+	fsm.RegisterTransition(s2, s3)
+
+	err := fsm.Initialize(s1)
+	assert.Nil(t, err)
+
+	err = fsm.Transition(s3, nil)
+	assert.NotNil(t, err)
+	assert.Equal(t, "cannot transition to this state", err.Error())
+
+	fsm = NewFSM()
+
+	fsm.RegisterState(s1)
+	fsm.RegisterState(s2)
+	fsm.RegisterState(s3)
+
+	fsm.RegisterTransition(s1, s2)
+	fsm.RegisterTransition(s2, s3)
+
+	err = fsm.Initialize(s4)
+	assert.NotNil(t, err)
+
+	fsm.RegisterState(s4)
+	err = fsm.Initialize(s4)
+	assert.Nil(t, err)
+
+	err = fsm.Transition(s1, nil)
+	assert.NotNil(t, err)
+	assert.Equal(t, "cannot transition from this state", err.Error())
 }
